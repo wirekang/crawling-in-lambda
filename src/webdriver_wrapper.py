@@ -37,16 +37,19 @@ class WebDriverWrapper:
         chrome_options.add_argument('--no-sandbox')
         chrome_options.add_argument('--disable-gpu')
         chrome_options.add_argument('--window-size=1280x1696')
-        chrome_options.add_argument('--user-data-dir={}'.format(self._tmp_folder + '/user-data'))
+        chrome_options.add_argument(
+            '--user-data-dir={}'.format(self._tmp_folder + '/user-data'))
         chrome_options.add_argument('--hide-scrollbars')
         chrome_options.add_argument('--enable-logging')
         chrome_options.add_argument('--log-level=0')
         chrome_options.add_argument('--v=99')
         chrome_options.add_argument('--single-process')
-        chrome_options.add_argument('--data-path={}'.format(self._tmp_folder + '/data-path'))
+        chrome_options.add_argument(
+            '--data-path={}'.format(self._tmp_folder + '/data-path'))
         chrome_options.add_argument('--ignore-certificate-errors')
         chrome_options.add_argument('--homedir={}'.format(self._tmp_folder))
-        chrome_options.add_argument('--disk-cache-dir={}'.format(self._tmp_folder + '/cache-dir'))
+        chrome_options.add_argument(
+            '--disk-cache-dir={}'.format(self._tmp_folder + '/cache-dir'))
         chrome_options.add_argument(
             'user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/61.0.3163.100 Safari/537.36')
 
@@ -71,10 +74,10 @@ class WebDriverWrapper:
     def get_inner_html(self, xpath):
         elem_value = self._driver.find_element_by_xpath(xpath)
         return elem_value.get_attribute('innerHTML')
-    
+
     def find(self, xpath):
         return self._driver.find_element_by_xpath(xpath)
-    
+
     def close(self):
         # Close webdriver connection
         self._driver.quit()
@@ -109,9 +112,11 @@ class WebDriverWrapper:
         self._driver.execute_script(
             "var x = document.getElementsByTagName('a'); var i; for (i = 0; i < x.length; i++) { x[i].target = '_self'; }")
         # add missing support for chrome "send_command"  to selenium webdriver
-        self._driver.command_executor._commands["send_command"] = ("POST", '/session/$sessionId/chromium/send_command')
+        self._driver.command_executor._commands["send_command"] = (
+            "POST", '/session/$sessionId/chromium/send_command')
 
-        params = {'cmd': 'Page.setDownloadBehavior', 'params': {'behavior': 'allow', 'downloadPath': self.download_location}}
+        params = {'cmd': 'Page.setDownloadBehavior', 'params': {
+            'behavior': 'allow', 'downloadPath': self.download_location}}
         command_result = self._driver.execute("send_command", params)
         print("response from browser:")
         for key in command_result:
