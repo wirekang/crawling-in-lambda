@@ -1,8 +1,9 @@
 ### macOS
 *.DS_Store
 
-### PyCharm
+### IDE
 .idea/
+.vscode/
 
 ### Python
 __pycache__/
@@ -12,3 +13,4 @@ env/
 
 ### Project specifics
 bin/
+.env

@@ -1,4 +1,26 @@
-.PHONY: help check clean fetch-dependencies docker-build build-lambda-package
+ifneq (,$(wildcard ./.env))
+include .env
+endif
+
+ifneq (,$(wildcard ./.env.clone))
+include .env.clone
+endif
+
+
+define makeRandom
+$(shell mktemp -u | sed -E 's/(\.|\/tmp)//g')
+endef
+
+
+CHORMEDRIVER_URL:=https://chromedriver.storage.googleapis.com/${CHORMEDRIVER_VERSION}/chromedriver_linux64.zip
+CHROME_URL:=https://github.com/adieuadieu/serverless-chrome/releases/download/${CHROME_VERSION}/stable-headless-chromium-amazonlinux-2017-03.zip
+
+LAYER_DIR:=layer
+
+CODE_ZIP:=src.zip
+LAYER_ZIP:=layer.zip
+
+export
 
 help:
 	@python -c 'import fileinput,re; \
@@ -9,37 +31,80 @@ check:		## print versions of required tools
 	@docker --version
 	@docker-compose --version
 	@python3 --version
+	@python --version
+	@pip --version
+	@aws --version
+	@pipreqs -- version || pip install -q pipreqs
 
-clean:		## delete pycache, build files
-	@rm -rf build build.zip
+clean:		## Clean
+	@rm -rf $(LAYER_DIR)
 	@rm -rf __pycache__
+	@rm -f requirements.txt
+	@rm -rf src
+	@rm -f .env.clone
+	@rm -f $(LAYER_ZIP)
+	@rm -rf $(CODE_ZIP)
 
-fetch-dependencies:		## download chromedriver, headless-chrome to `./bin/`
+fetch-bin:
 	@mkdir -p bin/
 
-	# Get chromedriver
-	curl -SL https://chromedriver.storage.googleapis.com/2.32/chromedriver_linux64.zip > chromedriver.zip
-	unzip chromedriver.zip -d bin/
+	curl -sSL $(CHORMEDRIVER_URL) > chromedriver.zip
+	@unzip -o chromedriver.zip -d bin/
 
-	# Get Headless-chrome
-	curl -SL https://github.com/adieuadieu/serverless-chrome/releases/download/v1.0.0-29/stable-headless-chromium-amazonlinux-2017-03.zip > headless-chromium.zip
-	unzip headless-chromium.zip -d bin/
+	curl -sSL $(CHROME_URL) > headless-chromium.zip
+	@unzip -o headless-chromium.zip -d bin/
 
-	# Clean
 	@rm headless-chromium.zip chromedriver.zip
 
-docker-build:		## create Docker image
+run: build-docker
+	docker-compose lambda lambda_function.lambda_handler
+
+build-docker: build-layer
 	docker-compose build
 
-docker-run:			## run `src.lambda_function.lambda_handler` with docker-compose
-	docker-compose run lambda src.lambda_function.lambda_handler
+build-layer: generate-requirements fetch-bin
+	mkdir $(LAYER_DIR)
+	cp -r bin $(LAYER_DIR)/
+	cp -r lib $(LAYER_DIR)/
+	pip install -q -q -r requirements.txt -t $(LAYER_DIR)/python
 
-build-lambda-package: clean fetch-dependencies			## prepares zip archive for AWS Lambda deploy (-> build/build.zip)
-	mkdir build
-	cp -r src build/.
-	cp -r bin build/.
-	cp -r lib build/.
-	pip install -r requirements.txt -t build/lib/.
-	cd build; zip -9qr build.zip .
-	cp build/build.zip .
-	rm -rf build
+publish-layer: build-layer
+	cd $(LAYER_DIR); zip -9qr ../$(LAYER_ZIP) .
+	cd ..
+	$(eval NAME := $(call makeRandom))
+	$(eval REMOTE := "s3://${AWS_S3_BUCKET}/$(NAME).zip")
+	@aws s3 cp $(LAYER_ZIP) $(REMOTE)
+	aws lambda publish-layer-version --layer-name ${AWS_LAMBDA_LAYER_NAME} \
+		--description ${AWS_LAMBDA_LAYER_DESCRIPTION} \
+		--compatible-runtimes python3.7 \
+		--content S3Bucket=${AWS_S3_BUCKET},S3Key=$(NAME).zip
+	@aws s3 rm $(REMOTE)
+
+
+copy-outer: clean 
+	@mkdir src
+	@cp -r ../src/* src/
+	@cp ../.env .env.clone
+
+
+generate-requirements: copy-outer
+	@pipreqs src --savepath requirements.txt
+
+
+publish-code: generate-requirements
+	cd src; zip -9qr ../$(CODE_ZIP) .
+	cd ..
+	$(eval NAME := $(call makeRandom))
+	$(eval REMOTE := "s3://${AWS_S3_BUCKET}/$(NAME).zip")
+	@aws s3 cp $(CODE_ZIP) $(REMOTE)
+	aws lambda update-function-code --function-name ${AWS_LAMBDA_FUNCTION_NAME}\
+		--s3-bucket ${AWS_S3_BUCKET} --s3-key $(NAME).zip --publish
+	@aws s3 rm $(REMOTE)
+
+
+
+_generate-env-sample:
+	@sed "s/\=.*/=/" .env > .env.sample
+
+.PHONY: help check clean fetch-bin run build-docker build-layer publish-layer copy-outer \
+	generate-requirements publish-code _generate-env-sample
