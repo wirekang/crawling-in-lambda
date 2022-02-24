@@ -14,7 +14,9 @@ env/
 ### Project specifics
 bin/
 .env
-.env.clone
+.env.sample
 layer/
 src/
 requirements.txt
+src.zip
+layer.zip

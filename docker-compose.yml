@@ -4,7 +4,9 @@ services:
   lambda:
     build: .
     env_file:
-      - .env.clone
+      - .env
+    ports:
+      - ${DOCKER_PORT}
     environment:
       - PYTHONPATH=/var/task:/opt/python
       - PATH=/opt/bin

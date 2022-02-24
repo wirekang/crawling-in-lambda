@@ -1,26 +1,14 @@
-ifneq (,$(wildcard ./.env))
-include .env
-endif
-
-ifneq (,$(wildcard ./.env.clone))
-include .env.clone
-endif
-
-
 define makeRandom
 $(shell mktemp -u | sed -E 's/(\.|\/tmp)//g')
 endef
 
 
-CHORMEDRIVER_URL:=https://chromedriver.storage.googleapis.com/${CHORMEDRIVER_VERSION}/chromedriver_linux64.zip
-CHROME_URL:=https://github.com/adieuadieu/serverless-chrome/releases/download/${CHROME_VERSION}/stable-headless-chromium-amazonlinux-2017-03.zip
 
 LAYER_DIR:=layer
 
 CODE_ZIP:=src.zip
 LAYER_ZIP:=layer.zip
 
-export
 
 help:
 	@python -c 'import fileinput,re; \
@@ -41,11 +29,13 @@ clean:		## Clean
 	@rm -rf __pycache__
 	@rm -f requirements.txt
 	@rm -rf src
-	@rm -f .env.clone
+	@rm -f .env
 	@rm -f $(LAYER_ZIP)
 	@rm -rf $(CODE_ZIP)
 
-fetch-bin:
+fetch-bin: _dotenv
+	$(eval CHORMEDRIVER_URL:=https://chromedriver.storage.googleapis.com/${CHORMEDRIVER_VERSION}/chromedriver_linux64.zip)
+	$(eval CHROME_URL:=https://github.com/adieuadieu/serverless-chrome/releases/download/${CHROME_VERSION}/stable-headless-chromium-amazonlinux-2017-03.zip)
 	@mkdir -p bin/
 
 	curl -sSL $(CHORMEDRIVER_URL) > chromedriver.zip
@@ -84,14 +74,12 @@ publish-layer: build-layer ## Publish aws lambda layer
 copy-outer: clean 
 	@mkdir src
 	@cp -r ../src/* src/
-	@cp ../.env .env.clone
-
+	@cp ../.env .env
 
 generate-requirements: copy-outer
 	@pipreqs src --savepath requirements.txt
 
-
-publish-code: generate-requirements ## publish aws lambda function code
+publish-code: _dotenv generate-requirements ## publish aws lambda function code
 	cd src; zip -9qr ../$(CODE_ZIP) .
 	cd ..
 	$(eval NAME := $(call makeRandom))
@@ -101,10 +89,13 @@ publish-code: generate-requirements ## publish aws lambda function code
 		--s3-bucket ${AWS_S3_BUCKET} --s3-key $(NAME).zip --publish
 	@aws s3 rm $(REMOTE)
 
-
-
 _generate-env-sample:
-	@sed "s/\=.*/=/" .env > .env.sample
+	@head -n 5 ../.env > .env.sample
+	@tail -n +6 ../.env | sed -E "s/\=.*/=/" >> .env.sample
+
+_dotenv: copy-outer
+	$(eval include .env)
+	$(eval export)
 
 .PHONY: help check clean fetch-bin run build-docker build-layer publish-layer copy-outer \
-	generate-requirements publish-code _generate-env-sample
+	generate-requirements publish-code _generate-env-sample _dotenv
