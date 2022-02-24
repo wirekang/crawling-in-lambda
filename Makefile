@@ -27,14 +27,14 @@ help:
 	ms=filter(None, (re.search("([a-zA-Z_-]+):.*?## (.*)$$",l) for l in fileinput.input())); \
 	print("\n".join(sorted("\033[36m  {:25}\033[0m {}".format(*m.groups()) for m in ms)))' $(MAKEFILE_LIST)
 
-check:		## print versions of required tools
-	@docker --version
-	@docker-compose --version
-	@python3 --version
-	@python --version
-	@pip --version
-	@aws --version
-	@pipreqs -- version || pip install -q pipreqs
+check:		## Print versions of required tools
+	docker --version
+	docker-compose --version
+	python3 --version
+	python --version
+	pip --version
+	aws --version
+	pipreqs -- version || pip install -q pipreqs
 
 clean:		## Clean
 	@rm -rf $(LAYER_DIR)
@@ -56,7 +56,7 @@ fetch-bin:
 
 	@rm headless-chromium.zip chromedriver.zip
 
-run: build-docker
+run: build-docker ## Run project in lambda docker
 	docker-compose lambda lambda_function.lambda_handler
 
 build-docker: build-layer
@@ -68,7 +68,7 @@ build-layer: generate-requirements fetch-bin
 	cp -r lib $(LAYER_DIR)/
 	pip install -q -q -r requirements.txt -t $(LAYER_DIR)/python
 
-publish-layer: build-layer
+publish-layer: build-layer ## Publish aws lambda layer
 	cd $(LAYER_DIR); zip -9qr ../$(LAYER_ZIP) .
 	cd ..
 	$(eval NAME := $(call makeRandom))
@@ -91,7 +91,7 @@ generate-requirements: copy-outer
 	@pipreqs src --savepath requirements.txt
 
 
-publish-code: generate-requirements
+publish-code: generate-requirements ## publish aws lambda function code
 	cd src; zip -9qr ../$(CODE_ZIP) .
 	cd ..
 	$(eval NAME := $(call makeRandom))
