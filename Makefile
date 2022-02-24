@@ -57,7 +57,7 @@ fetch-bin:
 	@rm headless-chromium.zip chromedriver.zip
 
 run: build-docker ## Run project in lambda docker
-	docker-compose lambda lambda_function.lambda_handler
+	docker-compose run lambda lambda_function.lambda_handler
 
 build-docker: build-layer
 	docker-compose build
