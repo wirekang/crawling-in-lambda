@@ -22,7 +22,7 @@ check:		## Print versions of required tools
 	python --version
 	pip --version
 	aws --version
-	pipreqs -- version || pip install -q pipreqs
+	pipreqs --version || pip install -q pipreqs
 
 clean:		## Clean
 	@rm -rf $(LAYER_DIR)
